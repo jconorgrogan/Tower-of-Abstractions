@@ -203,3 +203,4 @@ Algorithm
 - ✅ **Stopping rules:** Follow `primitive_expansion_policy` and `max_depth`.
 - ✅ **No circularity:** Evidence must not presuppose the parent.
 - ✅ **Depth control:** Expansion continues to named formal or empirical primitives only.
+- Final Note: the decomposition protocol provided doesn’t request or permit a concluding statement. The output should terminate at the final decomposed nodes (conceptual and epistemic), without any evaluative synthesis. It should only purely evaluate and input the facts and evidence (for or against) that are supporting each node
