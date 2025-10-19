@@ -1,164 +1,133 @@
-# Prompt: Decomposition Output Evaluator
+let’s turn the decomposition into a strength evaluation. Here’s a compact rubric you can reuse, then I’ll score “1+1=2”.
 
-## Role
-You are an **evaluator**. Given:
-1) the original **decomposition-engine spec** (the instruction the model was asked to follow), and  
-2) a **candidate decomposition output** (tree or JSON),
+Strength rubric (for any statement S)
 
-produce a **strict, evidence-backed evaluation** with scores, violations, and actionable fixes. Your job is not to re-write the decomposition; it is to **assess** it against the spec and quantify compliance.
+For each axis, score 0–1 (higher = stronger). Multiply or report vector; both are useful.
 
----
+Axiomatic Minimality (AM)
+How few independent assumptions are required?
 
-## Inputs
-- **spec_text**: the full decomposition-engine prompt/spec the model was supposed to follow.
-- **candidate_output**: the model’s produced decomposition (tree or JSON).
-- **controller (optional)**: overrides for defaults (same schema as spec).
+1.0: provable in a tiny, canonical base (e.g., PA/PRA).
 
----
+0.7: needs a mainstream but heavier base (e.g., ZFC, full second-order).
 
-## Evaluation Outputs (you must emit ALL sections, in order)
+0.3: needs exotic/controversial axioms.
 
-1) **Verdict Summary (at most 6 lines)**
-   - 1-line overall verdict: **Pass** or **Fail** (Fail if any hard requirement is violated).
-   - 1-line headline reason.
-   - Score vector (see “Scoring Rubric”) + overall composite.
-   - Top 3 blocking violations (short).
-   - Top 3 quick wins (short).
+0.0: unaxiomatized reliance.
 
-2) **Spec Conformance Checklist (hard requirements)**
-   For each checkbox below, mark ✅/❌ and cite exact locations (line numbers, JSON paths, or node paths):
-   - Two branches at every node (conceptual & epistemic) OR explicit `stopping_reason`.
-   - Operators present on **every child**, and operator ∈ allowed set for that branch.
-   - `stopping_reason` used only at leaves and ∈ {primitive_of_definition, empirical_primitive, out_of_scope, max_depth}.
-   - Provenance present on **all epistemic leaves** with correct forms.
-   - Failure modes: **at least one** per parent, each references **exactly one** child and provides a falsification mechanism.
-   - Transports: present when multiple foundations/substrates are used; all pairs connected (or explain why single-foundation).
-   - MECE enforcement: distinctness (no mergeable siblings) and coverage (siblings jointly sufficient).
-   - Width/depth guardrails honored: `max_width` ⇒ taxonomy bucket when exceeded; at least one terminal path hits an allowed stopping reason.
-   - No concept/evidence mixing; no circularity (evidence must not presuppose the parent).
-   - Domain neutrality respected or explicit `[domain]` annotations when forced.
+Derivation Tightness (DT)
+Shortest/cleanest proof length and lack of “lemmas of convenience.”
 
-3) **Metrics Recompute (independent)**
-   Recompute and report:
-   - `atomicity ∈ [0,1]`: penalize long multi-idea bullets and repeated tokens.
-   - `mece_overlap ∈ [0,1]`: average sibling Jaccard; must be ≤ 1 - `dedupe_threshold`.
-   - `max_depth_used` and `branching_hist`.
-   - `evidence_mix`: { empirical | formal | computation } fractions at epistemic leaves.
-   - `operator_mismatch_rate`: fraction of children with invalid operator for their branch.
+1.0: few steps, purely definitional/primitive-recursive.
 
-4) **Violations Report (must be exact and exhaustive)**
-   Produce arrays mirroring the spec’s validator keys. Each entry must include a **precise pointer** (tree path or JSON pointer) and a **minimal fix**:
-   - `missing_branches`
-   - `leaves_without_stopping_reason`
-   - `cycles_detected`
-   - `coverage_violations` (state which sibling removal broke sufficiency and why)
-   - `concept_evidence_misplacements`
-   - `operator_mismatches`
-   - `transport_gaps` (list required edges)
-   - `provenance_missing`
+0.7: moderate chain but standard.
 
-5) **Scoring Rubric (0–1 per axis + composite)**
-   Compute each axis; justify each with 1–2 bullet citations:
-   - **Branch Completeness (BC)**: fraction of nodes with both branches or valid stopping_reason.
-   - **Operator Correctness (OC)**: 1 − operator_mismatch_rate.
-   - **Provenance Adequacy (PA)**: fraction of epistemic leaves with valid provenance.
-   - **MECE Quality (MQ)**: 0.5·(1 − mece_overlap) + 0.5·coverage_score (coverage_score = fraction of parents passing coverage).
-   - **Failure-Mode Quality (FMQ)**: fraction of parents whose `failure_modes` are present, child-specific, and mechanistic (not rhetorical).
-   - **Transport Coherence (TC)**: 1 if all required transports are present and justified; else 0, or partial ∈ (0,1) if some pairs are missing.
-   - **Depth/Width Discipline (DWD)**: penalty for over-width without taxonomy, and for no terminal justification path.
-   - **Separation Integrity (SI)**: 1 − mixing_rate (concept/evidence/circularity issues).
-   - **Granularity/Atomicity (GA)**: equal to `atomicity`.
-   - **Conformance Composite**: weighted mean with hard floors (see below).
+0.3: long or brittle derivation.
 
-   **Weights (default):**
-   - BC .18, OC .10, PA .12, MQ .12, FMQ .10, TC .08, DWD .10, SI .10, GA .10.  
-   **Hard floors:** If BC<0.9 or PA<0.9 ⇒ overall ≤ 0.6; if any hard requirement ❌ in Section 2 ⇒ **Fail**.
+0.0: no proof.
 
-6) **Actionable Fix Plan (ordered)**
-   A minimal sequence of edits to bring the candidate to **Pass** with ≥0.9 composite. Each step is a concrete mutation (e.g., “Add `PROVE: … [provenance: theory:PA, theorem:Recursion]` at /root/conceptual/1/epistemic/0…”). Limit to 10–15 steps.
+Cross-Foundation Robustness (CFR)
+Number and independence of foundations in which S holds with transport maps.
 
-7) **Delta Projection (optional)**
-   Estimate new scores after applying the fix plan.
+1.0: PA, ZFC(ω), and Type Theory/HoTT all prove it; known conservativity.
 
----
+0.7: ≥2 independent foundations.
 
-## Evaluation Method (how you must reason)
-- **Deterministic**: Do not improvise the spec; only apply what’s written in `spec_text`. If ambiguous, state it and choose the stricter interpretation.
-- **Pointer Precision**: Use exact node paths. For tree outputs, synthesize stable paths like `/root[“1+1=2”]/conceptual/DEFINE:Natural numbers/…`.
-- **No rewriting**: Do not produce a corrected decomposition; only point fixes.
-- **Strict operator typing**:
-  - Conceptual branch allowed: `DEFINE|SPECIALIZE|DECOMPOSE|REDUCE|INSTRUMENT|TRANSPORT`
-  - Epistemic branch allowed: `PROVE|COMPUTE|COUNTEREXAMPLE|INSTRUMENT|TRANSPORT`
-- **Provenance**: Treat as **mandatory** at epistemic leaves; forms must match spec.
-- **Transports**: If multiple foundations or substrates are detected anywhere in the subtree, require a Transports section at the root that connects all distinct pairs with evidence.
-- **Coverage test**: For each parent, attempt removing each sibling; if meaning/justification breaks, record that the set is minimally sufficient. If not, flag redundancy.
+0.3: only one.
 
----
+0.0: none.
 
-## Templated Output (you must follow this structure)
+Failure-Mode Sparsity (FMS)
+How many minimal perturbations would falsify S; fewer = stronger.
+Let k = count of truly minimal, non-overlapping perturbations; define
+FMS = 1 / (1 + log₂(1+k)). (So 0 faults → 1.0; 3–5 faults → ~0.6–0.5).
 
-### 1) Verdict Summary
-- Verdict: **Pass|Fail**
-- Headline reason: …
-- Scores: BC … | OC … | PA … | MQ … | FMQ … | TC … | DWD … | SI … | GA … ⇒ **Composite …**
-- Top blocking violations: (1)… (2)… (3)…
-- Quick wins: (1)… (2)… (3)…
+Concept/Evidence Separation Integrity (CESI)
+Was meaning vs justification cleanly separated (low circularity)?
 
-### 2) Spec Conformance Checklist
-- Two branches or stopping_reason at every node: ✅/❌ (pointers…)
-- Operators valid per branch: ✅/❌ (pointers…)
-- Stopping reasons valid at leaves: ✅/❌ (pointers…)
-- Provenance at all epistemic leaves: ✅/❌ (pointers…)
-- Failure modes per parent, child-specific & mechanistic: ✅/❌ (pointers…)
-- Transports present when required: ✅/❌ (why; pointers…)
-- MECE distinctness & coverage: ✅/❌ (examples…)
-- Width/depth guardrails: ✅/❌ (pointers…)
-- No mixing / no circularity: ✅/❌ (pointers…)
-- Domain neutrality / annotations: ✅/❌ (pointers…)
+1.0: definitions vs proofs fully disjoint; no presupposition of S.
 
-### 3) Metrics Recompute
-- atomicity: …
-- mece_overlap: …
-- max_depth_used: …
-- branching_hist: …
-- evidence_mix: …
-- operator_mismatch_rate: …
+0.7: minor bleed.
 
-### 4) Violations Report
-- missing_branches: […]
-- leaves_without_stopping_reason: […]
-- cycles_detected: […]
-- coverage_violations: […]
-- concept_evidence_misplacements: […]
-- operator_mismatches: […]
-- transport_gaps: […]
-- provenance_missing: […]
+0.3: noticeable circularity.
 
-### 5) Scoring Rubric
-- BC: … (evidence…)
-- OC: … (evidence…)
-- PA: … (evidence…)
-- MQ: … (evidence…)
-- FMQ: … (evidence…)
-- TC: … (evidence…)
-- DWD: … (evidence…)
-- SI: … (evidence…)
-- GA: … (evidence…)
-- **Composite** (weights applied; floors enforced): …
+0.0: circular.
 
-### 6) Actionable Fix Plan
-1) …
-2) …
-…
-≤15 steps.
+Normalization/Computation Witness (NCW)
+Does S reduce to a canonical normal form in at least one computational semantics (e.g., type-theoretic normalization, certified TRS run)?
 
-### 7) Delta Projection (optional)
-- New scores (estimated): …
-- Expected Verdict: **Pass**
+1.0: yes, with machine-checked trace.
 
----
+0.7: yes, informal.
 
-## Notes
-- If `candidate_output` is JSON, preserve and reference its keys exactly.
-- If it is in tree format, synthesize stable path labels and keep them consistent throughout the report.
-- Your evaluation must be **self-contained**: a reader should be able to apply the Fix Plan without seeing anything except your pointers and the candidate output.
+0.3: unclear.
+
+0.0: no.
+
+Model-Theoretic Stability (MTS)
+Truth preserved across all standard models intended by the theory?
+
+1.0: true in every standard model of the base theory.
+
+0.7: true in intended model, unknown in all nonstandard models.
+
+0.3: depends on a particular model variant.
+
+0.0: model-fragile.
+
+Proof-Theoretic Security (PTS)
+Distance from known inconsistency or unsound rules (cut-elimination, conservativity results present?).
+
+1.0: supported by cut-elimination / conservativity / small trusted kernels.
+
+0.7: partially.
+
+0.3: weak.
+
+0.0: none.
+
+Interpretation Load (IL) (penalty; lower is better)
+How many distinct substrate choices must be jointly assumed?
+Define IL = min(1, 0.1 × (#simultaneous independent substrates)). If you prove in one foundation, IL≈0. If you require multiple simultaneously, IL↑.
+
+Empirical Exposure (EE) (NA for pure math; else, does it hinge on instruments/calibration?)
+For math like 1+1=2, set EE = 1.0 by convention (no empirical load). For empirical claims, down-weight by uncertainty budget.
+
+Apply to S = “1+1=2”
+
+AM: 1.0 — provable in PRA/PA with primitive recursion.
+
+DT: 1.0 — 4–5 line derivation once + is defined.
+
+CFR: 1.0 — PA, ZFC(ω via finite ordinals), and HoTT/MLTT all prove it with known transports.
+
+FMS: Minimal perturbation set is tiny and very specific (e.g., drop successor injectivity; alter + base/step clause; break equality congruence; remove induction/recursor). Call k≈4 ⇒ FMS ≈ 1/(1+log₂(5)) ≈ 0.68.
+
+CESI: 1.0 — meanings (defs) vs proof steps are cleanly separated.
+
+NCW: 1.0 — normalizes in type theory; executable TRS trace exists.
+
+MTS: 1.0 — true in all standard models of PA; also holds in nonstandard models since it’s a quantifier-free closed equality.
+
+PTS: 1.0 — backed by cut-elimination (for the logic), conservativity of definitional extensions, and widely-audited proof kernels.
+
+IL (penalty): If we choose one base (say PA), IL=0.0. If we demand simultaneous agreement across three bases, IL=0.3 (3 substrates → 0.3), but that’s for communication, not necessity.
+
+EE: 1.0 — not empirical.
+
+Two ways to summarize:
+
+Scalar score (single-foundation certainty)
+
+Use a weighted mean with a modest penalty for IL only if >0.
+Weights (normalized): AM .15, DT .1, CFR .15, FMS .1, CESI .1, NCW .1, MTS .15, PTS .15, IL (penalty) .0, EE .0.
+
+Score ≈ 0.15·1 + 0.1·1 + 0.15·1 + 0.1·0.68 + 0.1·1 + 0.1·1 + 0.15·1 + 0.15·1
+= 0.15 + 0.10 + 0.15 + 0.068 + 0.10 + 0.10 + 0.15 + 0.15
+= 0.968.
+
+Vector readout (for dashboards)
+
+AM 1.00 | DT 1.00 | CFR 1.00 | FMS 0.68 | CESI 1.00 | NCW 1.00 | MTS 1.00 | PTS 1.00 | IL 0.00 | EE 1.00
+
+Interpretation: Near-maximal strength; the only non-trivial “exposure” is that the truth is tied to a small number of crisp definitional levers (FMS < 1). That’s exactly what you want: the levers are explicit and unnatural to change..... Now in the same way, evaluate your response on the previous request. 
