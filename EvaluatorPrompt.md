@@ -1,4 +1,4 @@
-let’s turn the decomposition into a strength evaluation. Here’s a compact rubric you can reuse, then I’ll score “1+1=2”.
+let’s turn the decomposition into a strength evaluation. Here’s a compact rubric you can reuse, then I’ll score “1+1=2” to give you an example of how its done.
 
 Strength rubric (for any statement S)
 
