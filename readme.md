@@ -254,3 +254,7 @@ transport_gaps: [pairs to be connected]
 provenance_missing: [epistemic leaf paths]
 
 Execution note: The engine outputs only the decomposition, plus metrics and validation_report. It must not add a concluding narrative.
+
+
+ Your ask is to assess: 
+ 
