@@ -1,212 +1,169 @@
-# Prompt: Recursive Conceptual–Epistemic Decomposition  
+Given a statement S, produce a hierarchical, MECE map of:
 
-## Role
-You are a **decomposition engine**. Given a statement **S**, produce a hierarchical, **MECE** map of:
-- **What S means** (conceptual dependencies), and
-- **Why S is true** (epistemic dependencies).
+What S means (conceptual dependencies), and
 
-Apply the same two-branch procedure to **every node recursively**.
+Why S is true/valid (epistemic dependencies).
 
----
+Apply the same two-branch procedure to every node recursively.
 
-## Definitions (use consistently)
+Definitions
 
-- **Conceptual dependency**: a minimal concept/term/relation without which the parent statement is not meaningful. (“What must be understood?”)
-- **Epistemic dependency**: a minimal fact/experiment/derivation that justifies the parent as true or valid. (“How do we know?”)
-- **Primitive of definition**: a basic term treated as given within a domain (e.g., mass, charge, observation, probability).
-- **Empirical primitive**: direct observation/measurement/tautology at which justification bottoms out (e.g., detector click, recorded spectrum, logical identity).
-- **MECE**: siblings must be **m**utually **e**xclusive and **c**ollectively **e**xhaustive.
-- **Domain neutrality**: do not assume a discipline unless the input forces it; when necessary, annotate the domain in brackets, e.g., `[mathematics]`.
+Conceptual dependency: minimal concept/term/relation needed for the parent to be meaningful (“What must be understood?”).
 
----
+Epistemic dependency: minimal fact/derivation/measurement that justifies the parent (“How do we know?”).
 
-## Controller Parameters
+Primitive of definition: a basic term taken as given within a domain (e.g., identity, set membership).
 
-Provide as needed. Defaults are in parentheses.
+Empirical primitive: a terminal observation/tautology with instrument + calibration identified.
 
-```yaml
-max_depth: 7                        # total recursion depth for each branch (default: 3)
-max_width: 12                       # hard cap on children per branch before pruning (default: 12)
-domain: ""                          # e.g., "physics", "economics", or composite like "mathematics|measurement theory|computability"
-output_format: "tree"               # "tree" | "json" (default: "tree")
-dedupe_threshold: 0.8               # semantic similarity threshold for sibling merge (default: 0.8)
-transport_required: auto            # auto|true|false — require transports when multiple foundations/substrates appear
-evidence_mix_target:                # optional target mix for epistemic leaves
-  empirical_min: 0.0                # require at least this fraction to be empirical when domain implies measurement
+MECE: siblings are mutually exclusive and collectively exhaustive.
+
+Domain neutrality: don’t assume a field unless forced; annotate with [domain] when needed.
+
+Controller (defaults)
+max_depth: 10               # recursion depth cap per branch (default set to 10)
+max_width: 12               # child cap per node before bucketing
+domain: ""                  # e.g., "mathematics|measurement theory|computability"
+output_format: "tree"       # "tree" | "json"
+dedupe_threshold: 0.8
+transport_required: auto    # auto|true|false
 primitive_expansion_policy: "expand_all"   # "expand_all" | "allowlist_only"
-axiom_systems:                              # name the formal bases you may rely on
-  - "Kolmogorov probability"
-  - "Cox probability"
+axiom_systems:
   - "ZFC set theory"
   - "Type theory (HoTT)"
-  - "Shannon information"
+  - "Peano Arithmetic (PA)"
+  - "Kolmogorov probability"
   - "IEEE-754 floating point"
   - "Unicode / ISO 10646"
-root_primitives:                            # optional, narrow allowlist where decomposition may stop
+root_primitives:
   - "identity"
   - "set membership"
-Global Rules (apply at every node, including leaf nodes)
-Two branches per node. For any node N:
+evidence_mix_target:
+  empirical_min: 0.0        # raise if domain implies measurement
 
-Conceptual dependencies: list minimal, distinct items required for N to be meaningful.
+Global Rules (apply at every node)
 
-Epistemic dependencies: list minimal, distinct items that justify N as true/valid.
+Two branches required.
+Every node must have:
 
-Recursion. For each listed child, attach its own two branches and continue recursively.
+Conceptual dependencies (what it means), and
 
-Stopping criteria (overridden for primitives).
+Epistemic dependencies (why it’s true/valid).
+If a branch is intentionally empty, include a stopping_reason.
 
-Conceptual stopping: stop only at items in root_primitives, or when further decomposition leaves the domain and max_depth is reached. Otherwise decompose so-called “primitives of definition” into:
+Recursion.
+For each child, attach its own two branches and continue recursively.
 
-Formal bases: named axiom systems/definitions/standards; and
+Stopping (strict).
 
-Implementation substrates: encodings, measurement procedures, computational models.
+Conceptual stopping:
+May stop only at root_primitives, or when leaving the domain and max_depth is hit. Otherwise, expand putative primitives into:
 
-Epistemic stopping: stop at empirical primitives only after naming the concrete instrument model, calibration/traceability, and recorded observable/tautology; stop at formal primitives only after naming the axiom system and the relevant derivations.
+Formal bases (named axioms/definitions/standards), and
 
-Mark the reason with stopping_reason (one of: primitive_of_definition | empirical_primitive | out_of_scope | max_depth).
+Implementation substrates (encodings, instruments, computational models).
+
+Epistemic stopping:
+
+May stop at empirical primitives only after naming:
+
+instrument model,
+
+calibration/traceability,
+
+recorded observable (log/bitstring/tautology).
+
+May stop at formal primitives only after naming:
+
+the axiom system, and
+
+the specific theorem/derivation invoked.
+
+Always set stopping_reason ∈ {primitive_of_definition, empirical_primitive, out_of_scope, max_depth} for any leaf.
+
+Operators (required on every child).
+Allowed operators and branch whitelist:
+
+Conceptual branch allowed: DEFINE | SPECIALIZE | DECOMPOSE | REDUCE | INSTRUMENT | TRANSPORT
+
+Epistemic branch allowed: PROVE | COMPUTE | COUNTEREXAMPLE | INSTRUMENT | TRANSPORT
+(Validator flags others as operator_mismatches.)
+
+Failure modes (per-child).
+Each node includes a failure_modes list; each item must:
+
+reference exactly one child by label (child_ref), and
+
+state how a minimal perturbation of that child falsifies the parent (mechanism, not rhetoric).
+
+Transports (cross-frame coherence).
+
+Use transport edges when multiple foundations/substrates appear (e.g., PA and ZFC):
+
+{ "from": "<source>", "to": "<target>",
+  "kind": "definitional|interpretation|conservativity|equiconsistency|implementation|calibration",
+  "evidence": ["<proof/standard ids>"] }
+
+
+Transports may appear inline (as TRANSPORT children) or in the dedicated Transports section of the node.
+
+With transport_required = true, or auto and ≥2 distinct foundations/substrates detected in the subtree, the root must include a Transports section connecting all such pairs; else validator reports transport_gaps.
 
 MECE enforcement.
 
-Distinctness test: if two siblings can be merged without loss, merge them.
+Distinctness test: merge siblings if they can be merged without loss.
 
-Coverage test: if removing any sibling breaks the parent’s meaning/justification, restore it and state why (in the validator).
+Coverage test: if removing any sibling breaks the parent’s sufficiency, restore it and record which test failed in the validator.
 
-Use relations (is-a, part-of, uses, implies) to separate overlaps.
+Granularity.
 
-Granularity control. Keep items atomic (one idea per line). Prefer relations over prose.
+One idea per line; prefer relations (is-a / part-of / uses / implies).
 
-Domain neutrality. Do not assume a field unless the input forces it; if needed, annotate with [domain].
+Do not echo the parent text as a child without adding information.
 
-Failure-mode guards.
+No circularity / no branch mixing.
 
-Do not repeat the parent wording as a child without adding information.
+Evidence must not presuppose the parent.
 
-Avoid circularity: do not list evidence that presupposes the parent.
+Do not place evidence under conceptual, or concepts under epistemic.
 
-Do not mix meaning with evidence; keep bullets under the correct branch.
+Width/Depth guardrails.
 
-Prefer procedures (named measurements/experiments/derivations) over vague claims.
+Width guard: if a node would exceed max_width, insert a single DECOMPOSE: Taxonomy child that buckets siblings (each bucket ≤ max_width) and recurse inside buckets.
 
-Primitive Expansion Policy (operative).
+Depth guard: require at least one path from the root to a terminal leaf with stopping_reason ∈ {primitive_of_definition, empirical_primitive}; otherwise emit a coverage_violations entry (“no terminal justification reached”).
 
-With primitive_expansion_policy = "expand_all", no item is exempt. Decompose “probability”, “token”, “parameter”, “observation/measurement”, “dataset”, “algorithm”, etc.
-
-For each would-be primitive:
-
-Conceptual branch: formal definition(s), representation(s)/encodings, relations (is-a/part-of/realizes).
-
-Epistemic branch: justification stack: axioms/standards → derivations/calibrations → empirical readouts/logs.
-
-Stop only at root_primitives or empirical readouts/tautologies, and only after identifying the instrument model or axiom system used.
-
-Failure modes (per node).
-
-Add a third local list failure_modes with minimal perturbations (one per child) that would falsify the parent.
-
-Each item must reference exactly one child label and specify the falsification mechanism (how altering that child invalidates the parent).
-
-Operators (structure every child).
-
-Prefix each child with an operator tag in ALL CAPS:
-
-DEFINE | SPECIALIZE | DECOMPOSE | REDUCE | TRANSPORT | INSTRUMENT | PROVE | COMPUTE | COUNTEREXAMPLE.
-
-The operator must match the nature of the child and will be checked in validation.
-
-Transport edges (cross-frame coherence).
-
-When multiple foundations or substrates appear, attach transports to relevant nodes:
-
-css
-Copy code
-{ "from": "<source>", "to": "<target>",
-  "kind": "definitional|interpretation|conservativity|equiconsistency|implementation|calibration",
-  "evidence": ["<law|proof|certificate ids>"] }
-If transport_required is true or auto with multiple foundations detected, the root must have transport coverage connecting all used foundations/substrates.
-
-Provenance (epistemic traceability).
-
-Every epistemic leaf must include provenance identifiers:
-
-Formal proofs: ["theory:<id>", "theorem:<id>"]
-
-Measurements: ["standard:<id>", "device:<model>", "certificate:<id>"]
-
-Computation: ["impl:<lang|lib>", "env:<isa/os>", "artifact:<hash|path>"]
-
-Metrics (quantify structure).
-
-Emit a metrics block with:
-
-atomicity (0–1): function of average words per bullet and term-uniqueness (target concise).
-
-mece_overlap (0–1): average Jaccard overlap of child glossaries (must be ≤ 1 - dedupe_threshold).
-
-max_depth_used: integer.
-
-branching_hist: map depth → child-count stats.
-
-evidence_mix: fraction of epistemic leaves by type (empirical | formal | other).
-
-If evidence_mix_target.empirical_min is set and domain implies measurement, enforce the minimum fraction.
-
-Post-Generation Validator (required).
-
-After generation, compute and print a validation_report with lists:
-
-missing_branches: nodes lacking conceptual or epistemic branches without stopping reason.
-
-leaves_without_stopping_reason: any leaf missing a valid stopping_reason.
-
-cycles_detected: repeated ancestor labels (report path).
-
-coverage_violations: parents failing the coverage test (state which sibling removal broke sufficiency).
-
-concept_evidence_misplacements: items placed under the wrong branch.
-
-Output is invalid if any list is non-empty.
-
-Output Format (Tree)
-Represent each node exactly as:
-
-mathematica
-Copy code
-<Statement or Concept>
+Output Format — Tree
+<Label>
  ├─ Conceptual dependencies
- │    ├─ <OPERATOR>: <Concept/Relation 1>
+ │    ├─ <OPERATOR>: <Child 1>
  │    │    ├─ Conceptual dependencies ...
  │    │    ├─ Epistemic dependencies ...
  │    │    └─ Failure modes ...
- │    └─ <OPERATOR>: <Concept/Relation 2>
+ │    └─ <OPERATOR>: <Child 2>
  │         ├─ Conceptual dependencies ...
  │         ├─ Epistemic dependencies ...
  │         └─ Failure modes ...
  ├─ Epistemic dependencies
- │    ├─ <OPERATOR>: <Evidence/Method 1> [provenance: ...]
+ │    ├─ <OPERATOR>: <Evidence 1> [provenance: ...]
  │    │    ├─ Conceptual dependencies ...
  │    │    ├─ Epistemic dependencies ...
  │    │    └─ Failure modes ...
- │    └─ <OPERATOR>: <Evidence/Method 2> [provenance: ...]
+ │    └─ <OPERATOR>: <Evidence 2> [provenance: ...]
  │         ├─ Conceptual dependencies ...
  │         ├─ Epistemic dependencies ...
  │         └─ Failure modes ...
  └─ Transports
       ├─ {from: ..., to: ..., kind: ..., evidence: [...]}
       └─ ...
-If a branch is empty due to stopping criteria, write — (primitive) or — (out of scope) with the reason, and set stopping_reason accordingly.
 
-Append at the end:
 
-csharp
-Copy code
-[metrics]
-[validation_report]
-Output Format (JSON)
-If output_format = "json", conform to this schema:
+If a branch is empty due to stopping, write — (primitive) or — (out of scope) and set stopping_reason on that node.
 
-json
-Copy code
+Output Format — JSON
+
+(Operator and stopping_reason are mandatory.)
+
 {
   "root": {
     "label": "string",
@@ -221,7 +178,7 @@ Copy code
     "atomicity": 0.0,
     "mece_overlap": 0.0,
     "max_depth_used": 0,
-    "branching_hist": { "0": 1, "1": 3 },
+    "branching_hist": { "0": 1 },
     "evidence_mix": { "empirical": 0.0, "formal": 1.0, "other": 0.0 }
   },
   "validation_report": {
@@ -229,13 +186,16 @@ Copy code
     "leaves_without_stopping_reason": [],
     "cycles_detected": [],
     "coverage_violations": [],
-    "concept_evidence_misplacements": []
+    "concept_evidence_misplacements": [],
+    "operator_mismatches": [],
+    "transport_gaps": [],
+    "provenance_missing": []
   }
 }
-Where Node is:
 
-json
-Copy code
+
+Node schema:
+
 {
   "label": "string",
   "operator": "DEFINE|SPECIALIZE|DECOMPOSE|REDUCE|TRANSPORT|INSTRUMENT|PROVE|COMPUTE|COUNTEREXAMPLE",
@@ -254,75 +214,43 @@ Copy code
   "stopping_reason": "none|primitive_of_definition|empirical_primitive|out_of_scope|max_depth",
   "domain": "optional string"
 }
-MECE & Dedupe
-Apply dedupe_threshold to merge semantically overlapping siblings only if meaning and justification are preserved.
 
-Siblings must remain atomic, non-redundant, and jointly sufficient for the parent.
+Provenance (mandatory for epistemic leaves)
 
-Primitive Expansion Examples (for guidance)
-Probability
+Formal: ["theory:<id>", "theorem:<id>"]
 
-yaml
-Copy code
-Probability
- ├─ Conceptual dependencies
- │    ├─ DEFINE: Axiom system — Kolmogorov probability (σ-algebra, measure, normalization)
- │    └─ SPECIALIZE: Interpretation relation (frequentist long-run frequency | Bayesian degree of belief)
- └─ Epistemic dependencies
-      ├─ PROVE: Formal validation — theorems from axioms (law of total probability, Bayes’ rule) [provenance: theory:Kolmogorov, theorems:{LTP,Bayes}]
-      └─ COMPUTE: Empirical adequacy — calibration tests (forecast vs observed frequencies) [provenance: standard:EM-alg, artifact:calib_log]
-Observation / Measurement
+Empirical: ["standard:<id>", "device:<model>", "certificate:<id>"]
 
-yaml
-Copy code
-Observation or Measurement
- ├─ Conceptual dependencies
- │    ├─ INSTRUMENT: Instrument model (e.g., photodiode response curve)
- │    └─ INSTRUMENT: Calibration procedure (traceable to standards body)
- └─ Epistemic dependencies
-      ├─ COMPUTE: Calibration certificates and uncertainty budgets [provenance: standard:NIST-XYZ, cert:#AB123]
-      └─ COMPUTE: Raw detector readouts/log files as empirical primitives [provenance: device:HP-3458A, artifact:loghash]
-Token
+Computation: ["impl:<lang|lib>", "env:<isa/os>", "artifact:<hash|path>"]
 
-yaml
-Copy code
-Token
- ├─ Conceptual dependencies
- │    ├─ DEFINE: Encoding standard (Unicode / ISO 10646)
- │    └─ DECOMPOSE: Tokenisation algorithm (BPE, unigram LM)
- └─ Epistemic dependencies
-      ├─ COMPUTE: Standard conformance tests [provenance: standard:Unicode-15, artifact:conformance-suite]
-      └─ COMPUTE: Round-trip encode/decode tests; OOV/mapping audits [provenance: impl:icu, artifact:testlogs]
-Algorithm
+Metrics (computed)
 
-yaml
-Copy code
-Algorithm
- ├─ Conceptual dependencies
- │    ├─ DEFINE: Abstract machine model (Turing, RAM)
- │    └─ REDUCE: Implementation substrate (finite-precision arithmetic, memory model)
- └─ Epistemic dependencies
-      ├─ PROVE: Correctness proofs [provenance: theory:Hoare, theorem:partial-total-correctness]
-      └─ COMPUTE: Execution traces/logs verifying behaviour on defined inputs [provenance: impl:python3.12, env:x86_64, artifact:trace.json]
-Evaluator Checklist
-✅ MECE: Are siblings non-overlapping and jointly sufficient?
+atomicity ∈ [0,1] — brevity & term-uniqueness.
 
-✅ Atomicity: Is each bullet one idea and operator-tagged?
+mece_overlap ∈ [0,1] — average Jaccard overlap of sibling glossaries (must be ≤ 1 - dedupe_threshold).
 
-✅ Two branches: Are both conceptual and epistemic present or marked with a stopping reason?
+max_depth_used: int
 
-✅ Stopping rules: Follow primitive_expansion_policy, max_depth, and record stopping_reason.
+branching_hist: { depth: count }
 
-✅ Failure modes: Does each node list child-specific falsification mechanisms?
+evidence_mix: { empirical: f, formal: f, other: f }
 
-✅ Transports: When multiple foundations/substrates appear, are transport edges present with evidence?
+Post-Generation Validator (must be empty for valid output)
 
-✅ Provenance: Do all epistemic leaves carry provenance handles?
+missing_branches: [paths]
 
-✅ Metrics: Are atomicity, MECE-overlap, depth/width, and evidence mix reported?
+leaves_without_stopping_reason: [paths]
 
-✅ Validator: Is validation_report empty across all violation lists?
+cycles_detected: [paths]
 
-Final Note: The engine outputs only the decomposition plus metrics and validation_report. It must not add a concluding narrative.
+coverage_violations: [{parent_path, removed_child, reason}]
 
-Your task: 1+1=2
+concept_evidence_misplacements: [paths]
+
+operator_mismatches: [paths]
+
+transport_gaps: [pairs to be connected]
+
+provenance_missing: [epistemic leaf paths]
+
+Execution note: The engine outputs only the decomposition, plus metrics and validation_report. It must not add a concluding narrative.
